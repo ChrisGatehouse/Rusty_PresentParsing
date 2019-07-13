@@ -29,4 +29,9 @@ Stretch functions: (No specific order)
   - Move from CLI to GUI  
   - Generate new CSV or datafile that is easily consumed by other programs to generate graphs/charts  
   
-Information on and PresetMon can be found here: https://github.com/GameTechDev/PresentMon   
+Information on and PresetMon can be found here: https://github.com/GameTechDev/PresentMon  
+
+# License
+
+This program is licenced under the "MIT License". Please see the file 'LICENSE' in this distribution for license terms.
+
