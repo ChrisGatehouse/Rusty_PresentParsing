@@ -1,0 +1,7 @@
+[package]
+name = "rusty_present_parser"
+version = "0.1.0"
+authors = ["Chris Gatehouse <cgate2@pdx.edu>"]
+edition = "2018"
+
+[dependencies]
