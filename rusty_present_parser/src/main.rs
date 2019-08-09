@@ -58,6 +58,18 @@ fn example() -> Result<(), Box<dyn Error>> {
 }
 */
 
+fn calculate_ranged_fps(_v: &Vec<f64>, _p: f64) -> f64 {
+let mut _some_percent_fps = 0.0;
+
+let mut _some_percent_size = libm::ceil(_v.len() as f64 * _p) as u64;
+println!("_some_percent_size: {:?} ", _some_percent_size);
+_some_percent_fps = libm::floor(1000.0 / _v[_v.len() - _some_percent_size as usize]);
+println!("TEST FN");
+
+
+return _some_percent_fps
+}
+
 fn example() -> Result<(), Box<Error>> {
     //let mut rdr = csv::Reader::from_reader(io::stdin());
 	//let mut rdr = csv::Reader::from_path("..\\data\\fortnite.csv")?;
@@ -106,6 +118,8 @@ fn example() -> Result<(), Box<Error>> {
 	println!("Total frame time in ms: {:?}", _total_frame_time.to_owned());
     println!("Size of data set: {:?}", _frame_times_vec.len());
 	
+	
+	
 	/*
 	println!("Contents of FrameTimeVec:");
     for x in _frame_times_vec.iter() {
@@ -124,6 +138,7 @@ fn example() -> Result<(), Box<Error>> {
 	
 	println!("Average FPS calculated: {:?}", _average_fps);
 	println!("Median FPS calculated: {:?}", _median_fps);
+	println!("Some percent FPS: {:?}", calculate_ranged_fps(&_frame_times_vec, 0.01));
 	Ok(())
 }
 
