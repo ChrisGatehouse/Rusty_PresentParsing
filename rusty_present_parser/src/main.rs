@@ -60,14 +60,15 @@ fn example() -> Result<(), Box<dyn Error>> {
 
 fn calculate_ranged_fps(_v: &Vec<f64>, _p: f64) -> f64 {
 let mut _some_percent_fps = 0.0;
-
 let mut _some_percent_size = libm::ceil(_v.len() as f64 * _p) as u64;
-println!("_some_percent_size: {:?} ", _some_percent_size);
+//println!("_some_percent_size: {:?} ", _some_percent_size);
 _some_percent_fps = libm::floor(1000.0 / _v[_v.len() - _some_percent_size as usize]);
-println!("TEST FN");
-
-
+//println!("TEST FN");
 return _some_percent_fps
+}
+
+fn calculate_some_average_ranged_fps(_v: &Vec<f64>, _p: f64) -> f64 {
+unimplemented!();
 }
 
 fn example() -> Result<(), Box<Error>> {
