@@ -58,14 +58,14 @@ fn example() -> Result<(), Box<dyn Error>> {
 }
 */
 
-fn calculate_ranged_fps(_v: &Vec<f64>, _p: f64) -> f64 {
+fn calculate_ranged_fps(_v: &[f64], _p: f64) -> f64 {
 	let mut _some_percent_fps = 0.0;
 	let mut _some_percent_size = libm::ceil(_v.len() as f64 * _p) as u64;
 	_some_percent_fps = libm::floor(1000.0 / _v[_v.len() - _some_percent_size as usize]);
 	_some_percent_fps
 }
 
-fn calculate_average_ranged_fps(_v: &Vec<f64>, _p: f64) -> f64 {
+fn calculate_average_ranged_fps(_v: &[f64], _p: f64) -> f64 {
 	let mut _ranged_size = libm::ceil(_v.len() as f64 * _p) as usize;
 	let mut _total_frame_time = 0.0;
 	for time in _v.iter().rev().take(_ranged_size) {
@@ -74,7 +74,9 @@ fn calculate_average_ranged_fps(_v: &Vec<f64>, _p: f64) -> f64 {
 	libm::floor(1000.0 / (_total_frame_time / _ranged_size as f64))
 }
 
-fn calculate_median_fps(_v: &Vec<f64>) -> f64 {
+fn calculate_median_fps(_v: &[f64]) -> f64 {
+	if _v.len() % 2 == 0 { 1000.0 / _v[(_v.len() / 2) - 1] } else { libm::floor(1000.0 / _v[_v.len() / 2]) }
+	/*
 	let mut _median_fps = 0.0;
 	if _v.len() % 2 == 0 {
 		//if the set is even median is normally the mean of the two middle numbers but we want to see true numbers
@@ -84,9 +86,10 @@ fn calculate_median_fps(_v: &Vec<f64>) -> f64 {
 		_median_fps = libm::floor(1000.0 / _v[_v.len() / 2]);
 	}
 	_median_fps
+	*/
 }
 
-fn calculate_average_fps(_v: &Vec<f64>, _total_frame_time: f64) -> f64 {
+fn calculate_average_fps(_v: &[f64], _total_frame_time: f64) -> f64 {
 	let mut _average_fps = 0.0;
 	_average_fps = 1000.0 / (_total_frame_time / _v.len() as f64);
 	_average_fps
