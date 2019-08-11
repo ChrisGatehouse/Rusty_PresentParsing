@@ -59,17 +59,39 @@ fn example() -> Result<(), Box<dyn Error>> {
 */
 
 fn calculate_ranged_fps(_v: &Vec<f64>, _p: f64) -> f64 {
-let mut _some_percent_fps = 0.0;
-let mut _some_percent_size = libm::ceil(_v.len() as f64 * _p) as u64;
-//println!("_some_percent_size: {:?} ", _some_percent_size);
-_some_percent_fps = libm::floor(1000.0 / _v[_v.len() - _some_percent_size as usize]);
-//println!("TEST FN");
-return _some_percent_fps
+	let mut _some_percent_fps = 0.0;
+	let mut _some_percent_size = libm::ceil(_v.len() as f64 * _p) as u64;
+	_some_percent_fps = libm::floor(1000.0 / _v[_v.len() - _some_percent_size as usize]);
+	_some_percent_fps
 }
 
-fn calculate_some_average_ranged_fps(_v: &Vec<f64>, _p: f64) -> f64 {
-unimplemented!();
+fn calculate_average_ranged_fps(_v: &Vec<f64>, _p: f64) -> f64 {
+	let mut _ranged_size = libm::ceil(_v.len() as f64 * _p) as usize;
+	let mut _total_frame_time = 0.0;
+	for time in _v.iter().rev().take(_ranged_size) {
+		_total_frame_time += time;
+	}
+	libm::floor(1000.0 / (_total_frame_time / _ranged_size as f64))
 }
+
+fn calculate_median_fps(_v: &Vec<f64>) -> f64 {
+	let mut _median_fps = 0.0;
+	if _v.len() % 2 == 0 {
+		//if the set is even median is normally the mean of the two middle numbers but we want to see true numbers
+		//that actually existed in the set so take the lowest of the two
+		_median_fps = 1000.0 / _v[(_v.len() / 2) - 1];
+	} else {
+		_median_fps = libm::floor(1000.0 / _v[_v.len() / 2]);
+	}
+	_median_fps
+}
+
+fn calculate_average_fps(_v: &Vec<f64>, _total_frame_time: f64) -> f64 {
+	let mut _average_fps = 0.0;
+	_average_fps = 1000.0 / (_total_frame_time / _v.len() as f64);
+	_average_fps
+}
+
 
 fn example() -> Result<(), Box<Error>> {
     //let mut rdr = csv::Reader::from_reader(io::stdin());
@@ -77,69 +99,32 @@ fn example() -> Result<(), Box<Error>> {
 	let mut rdr = csv::Reader::from_path("..\\data\\ThreeKingdoms_battle-0.csv")?;
 	
 	let mut _total_frame_time = 0.0;
-	let mut _average_fps = 0.0;
-	let mut _median_fps = 0.0;
-	let mut _one_percent_fps = 0.0;
-	let mut _point_one_percent_fps = 0.0;
 	
 	let mut _frame_times_vec = vec![];
 	for result in rdr.deserialize() {        
 		let record: Present = result?;
 		_total_frame_time += record.ms_between_display_change;
 		_frame_times_vec.push(record.ms_between_display_change);
-		
         //println!("{:?}", record.ms_between_display_change);
     }
 	
 	//need to sort frametimes
 	_frame_times_vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
 		
-	//make this a function so that we can return percent low fps i.e. 0.1%, 1%, 3%, etc.
-	let mut _one_percent_size = libm::ceil(_frame_times_vec.len() as f64 * 0.01) as u64;
-	let mut _point_one_percent_size = libm::ceil(_frame_times_vec.len() as f64 * 0.001) as u64;
-	_one_percent_fps = libm::floor(1000.0 / _frame_times_vec[_frame_times_vec.len() - _one_percent_size as usize]);
-	_point_one_percent_fps = libm::floor(1000.0 / _frame_times_vec[_frame_times_vec.len() - _point_one_percent_size as usize]);
-	
-	if _frame_times_vec.len() % 2 == 0 {
-		//if the set is even median is normally the mean of the two middle numbers but we want to see true numbers
-		//that actually existed in the set so take the lowest of the two
-		_median_fps = 1000.0 / _frame_times_vec[(_frame_times_vec.len() / 2) - 1];
-	} else {
-		_median_fps = libm::floor(1000.0 / _frame_times_vec[_frame_times_vec.len() / 2]);
-	}
-	
-	_average_fps = 1000.0 / (_total_frame_time / _frame_times_vec.len() as f64);
-	
-	//one liner not working well here, doing it in a few lines above for now
-	//_one_percent_fps = libm::floor(1000.0 / _frame_times_vec[_frame_times_vec.len() - libm::ceil(_frame_times_vec.len() * 0.01)])
-	
-	println!("Size of one percent data set: {:?}", _one_percent_size);
-	println!("1% percent low FPS: {:?}", _one_percent_fps);
-	println!("0.1% percent low FPS: {:?}", _point_one_percent_fps);
+
 	println!("Total frame time in ms: {:?}", _total_frame_time.to_owned());
     println!("Size of data set: {:?}", _frame_times_vec.len());
 	
 	
 	
-	/*
-	println!("Contents of FrameTimeVec:");
-    for x in _frame_times_vec.iter() {
-        println!("> {}", x);
-    }
-	*/
+	println!("1% Low FPS: {:?}", calculate_ranged_fps(&_frame_times_vec, 0.01));
+	println!("0.1% Low FPS: {:?}", calculate_ranged_fps(&_frame_times_vec, 0.001));
+	println!("Average FPS: {:?}", calculate_average_fps(&_frame_times_vec,_total_frame_time));
+	println!("Median FPS: {:?}", calculate_median_fps(&_frame_times_vec));
+	println!("Average 1% FPS: {:?}", calculate_average_ranged_fps(&_frame_times_vec, 0.01));
+	println!("Average 0.1% FPS: {:?}", calculate_average_ranged_fps(&_frame_times_vec, 0.001));
+	println!("Median FPS: {:?}", calculate_median_fps(&_frame_times_vec));
 	
-	/*
-	_frame_times_vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
-		
-	println!("Sorted contents of FrameTimeVec:");
-    for x in _frame_times_vec.iter() {
-        println!("> {}", x);
-    }
-	*/
-	
-	println!("Average FPS calculated: {:?}", _average_fps);
-	println!("Median FPS calculated: {:?}", _median_fps);
-	println!("Some percent FPS: {:?}", calculate_ranged_fps(&_frame_times_vec, 0.01));
 	Ok(())
 }
 
