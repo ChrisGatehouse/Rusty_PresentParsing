@@ -93,6 +93,17 @@ fn percent_time_below_threshold (_v: &[f64], _threshold: f64) -> f64 {
 	100.0 * (count as f64 / _v.len() as f64)
 }
 
+/// Calculates the jitter of the data set of frametimes
+/// Jitter is defined as the total difference of the set
+/// divided by the size of the set minus 1
+/// # Examples
+///
+/// ```
+/// let arg = vec![136.0,184.0,115.0,148.0,125.0];
+/// let answer = Self::calculate_jitter(&arg);
+///
+/// assert_eq!(43.25, answer);
+/// ```
 fn calculate_jitter (_v: &[f64]) -> f64 {
 	//probably need to use the original unsorted vectors here
 	//for now just calling before sorting the vector
