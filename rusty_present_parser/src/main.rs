@@ -93,7 +93,19 @@ fn percent_time_below_threshold (_v: &[f64], _threshold: f64) -> f64 {
 	100.0 * (count as f64 / _v.len() as f64)
 }
 
-fn example(_path: String) -> Result<(), Box<Error>> {
+fn calculate_jitter (_v: &[f64]) -> f64 {
+	//probably need to use the original unsorted vectors here
+	//for now just calling before sorting the vector
+	let mut _total_difference = 0.0;
+	//for time in _v.iter().peekable() {
+	for i in 1.._v.len() {
+		_total_difference += libm::fabs(_v[i] - _v[i-1]); 
+	}
+	//println!("TOTAL DIFFERENCE: {:?}", _total_difference);
+	_total_difference / (_v.len() as f64 - 1.0)
+}
+
+fn process_csv(_path: String) -> Result<(), Box<Error>> {
 	let mut rdr = csv::Reader::from_path(_path)?;
 	//let mut rdr = csv::Reader::from_path("..\\data\\ThreeKingdoms_battle-0.csv")?;
 	
@@ -106,6 +118,10 @@ fn example(_path: String) -> Result<(), Box<Error>> {
 		_frame_times_vec.push(record.ms_between_display_change);
         //println!("{:?}", record.ms_between_display_change);
     }
+	
+	//this is done before sorting the vector, need to fix this so it can be called anytime (sorted and unsorted copies?)
+	println!("Jitter before sorting: {:.2?} ms", calculate_jitter(&_frame_times_vec));
+	
 	//need to sort frametimes
 	_frame_times_vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
 		
@@ -123,6 +139,10 @@ fn example(_path: String) -> Result<(), Box<Error>> {
 	println!("Below 144 FPS: {:.2?}%", percent_time_below_threshold(&_frame_times_vec, 6.944));
 	println!("Below 165 FPS: {:.2?}%", percent_time_below_threshold(&_frame_times_vec, 6.060));
 	println!("Below 240 FPS: {:.2?}%", percent_time_below_threshold(&_frame_times_vec, 4.166));
+	//println!("Jitter after sorting: {:.2?}ms", calculate_jitter(&_frame_times_vec));
+	
+	//let testV = vec![136.0,184.0,115.0,148.0,125.0];
+	//println!("Jitter TEST: {:.2?} ms", calculate_jitter(&testV));
 	
 	Ok(())
 }
@@ -130,8 +150,12 @@ fn example(_path: String) -> Result<(), Box<Error>> {
 fn main() {
 	let args: Vec<String> = env::args().collect();
 	let _path = &args[1];
-	if let Err(err) = example(_path.to_string()) {
-		println!("error running example: {}", err);
+	//https://doc.rust-lang.org/std/fs/struct.Metadata.html
+	//need to handle directories here also, check if arg is file or directory
+	//if file continue and proceess, if directory look for csv files and proceess
+	
+	if let Err(err) = process_csv(_path.to_string()) {
+		println!("error running process_csv: {}", err);
         process::exit(1);
 	}
 	
