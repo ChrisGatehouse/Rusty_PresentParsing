@@ -2,6 +2,10 @@ use std::error::Error;
 use std::io;
 use std::process;
 use libm;
+use std::fs;
+use std::env;
+use std::process::Command;
+
 
 use serde::Deserialize;
 
@@ -76,17 +80,6 @@ fn calculate_average_ranged_fps(_v: &[f64], _p: f64) -> f64 {
 
 fn calculate_median_fps(_v: &[f64]) -> f64 {
 	if _v.len() % 2 == 0 { 1000.0 / _v[(_v.len() / 2) - 1] } else { libm::floor(1000.0 / _v[_v.len() / 2]) }
-	/*
-	let mut _median_fps = 0.0;
-	if _v.len() % 2 == 0 {
-		//if the set is even median is normally the mean of the two middle numbers but we want to see true numbers
-		//that actually existed in the set so take the lowest of the two
-		_median_fps = 1000.0 / _v[(_v.len() / 2) - 1];
-	} else {
-		_median_fps = libm::floor(1000.0 / _v[_v.len() / 2]);
-	}
-	_median_fps
-	*/
 }
 
 fn calculate_average_fps(_v: &[f64], _total_frame_time: f64) -> f64 {
@@ -95,11 +88,14 @@ fn calculate_average_fps(_v: &[f64], _total_frame_time: f64) -> f64 {
 	_average_fps
 }
 
+fn percent_time_below_threshold (_v: &[f64], _threshold: f64) -> f64 {
+	let count = _v.iter().filter(|&n| *n > _threshold).count();
+	100.0 * (count as f64 / _v.len() as f64)
+}
 
-fn example() -> Result<(), Box<Error>> {
-    //let mut rdr = csv::Reader::from_reader(io::stdin());
-	//let mut rdr = csv::Reader::from_path("..\\data\\fortnite.csv")?;
-	let mut rdr = csv::Reader::from_path("..\\data\\ThreeKingdoms_battle-0.csv")?;
+fn example(_path: String) -> Result<(), Box<Error>> {
+	let mut rdr = csv::Reader::from_path(_path)?;
+	//let mut rdr = csv::Reader::from_path("..\\data\\ThreeKingdoms_battle-0.csv")?;
 	
 	let mut _total_frame_time = 0.0;
 	
@@ -110,30 +106,34 @@ fn example() -> Result<(), Box<Error>> {
 		_frame_times_vec.push(record.ms_between_display_change);
         //println!("{:?}", record.ms_between_display_change);
     }
-	
 	//need to sort frametimes
 	_frame_times_vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
 		
-
 	println!("Total frame time in ms: {:?}", _total_frame_time.to_owned());
     println!("Size of data set: {:?}", _frame_times_vec.len());
-	
-	
-	
-	println!("1% Low FPS: {:?}", calculate_ranged_fps(&_frame_times_vec, 0.01));
-	println!("0.1% Low FPS: {:?}", calculate_ranged_fps(&_frame_times_vec, 0.001));
-	println!("Average FPS: {:?}", calculate_average_fps(&_frame_times_vec,_total_frame_time));
-	println!("Median FPS: {:?}", calculate_median_fps(&_frame_times_vec));
-	println!("Average 1% FPS: {:?}", calculate_average_ranged_fps(&_frame_times_vec, 0.01));
-	println!("Average 0.1% FPS: {:?}", calculate_average_ranged_fps(&_frame_times_vec, 0.001));
-	println!("Median FPS: {:?}", calculate_median_fps(&_frame_times_vec));
+		
+	println!("1% Low FPS: {:.2?}", calculate_ranged_fps(&_frame_times_vec, 0.01));
+	println!("0.1% Low FPS: {:.2?}", calculate_ranged_fps(&_frame_times_vec, 0.001));
+	println!("Average FPS: {:.2?}", calculate_average_fps(&_frame_times_vec,_total_frame_time));
+	println!("Median FPS: {:.2?}", calculate_median_fps(&_frame_times_vec));
+	println!("Average 1% FPS: {:.2?}", calculate_average_ranged_fps(&_frame_times_vec, 0.01));
+	println!("Average 0.1% FPS: {:.2?}", calculate_average_ranged_fps(&_frame_times_vec, 0.001));
+	println!("Median FPS: {:.2?}", calculate_median_fps(&_frame_times_vec));
+	println!("Below 60 FPS: {:.2?}%", percent_time_below_threshold(&_frame_times_vec, 16.66));
+	println!("Below 144 FPS: {:.2?}%", percent_time_below_threshold(&_frame_times_vec, 6.944));
+	println!("Below 165 FPS: {:.2?}%", percent_time_below_threshold(&_frame_times_vec, 6.060));
+	println!("Below 240 FPS: {:.2?}%", percent_time_below_threshold(&_frame_times_vec, 4.166));
 	
 	Ok(())
 }
 
 fn main() {
-	if let Err(err) = example() {
+	let args: Vec<String> = env::args().collect();
+	let _path = &args[1];
+	if let Err(err) = example(_path.to_string()) {
 		println!("error running example: {}", err);
         process::exit(1);
 	}
+	
+	let _ = Command::new("cmd.exe").arg("/c").arg("pause").status();
 }
