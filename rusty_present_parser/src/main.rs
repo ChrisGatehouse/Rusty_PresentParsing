@@ -1,8 +1,8 @@
 use std::error::Error;
-use std::io;
+//use std::io;
 use std::process;
 use libm;
-use std::fs;
+//use std::fs;
 use std::env;
 use std::process::Command;
 
@@ -46,26 +46,11 @@ struct Present {
 
 //https://docs.rs/csv/1.1.1/csv/
 
-/*
-fn example() -> Result<(), Box<dyn Error>> {
-    //let mut rdr = csv::Reader::from_reader(io::stdin());
-	let mut rdr = csv::Reader::from_path("..\\fortnite.csv")?;
-    for result in rdr.deserialize() {
-        // Notice that we need to provide a type hint for automatic
-        // deserialization.
-        let present: Present = result?;
-		//let ms1 = result.MsBetweenPresents;
-        println!("{:?}", present);
-		//println!("{:?}", ms1);
-    }
-    Ok(())
-}
-*/
-
 fn calculate_ranged_fps(_v: &[f64], _p: f64) -> f64 {
 	let mut _some_percent_fps = 0.0;
 	let mut _some_percent_size = libm::ceil(_v.len() as f64 * _p) as u64;
 	_some_percent_fps = libm::floor(1000.0 / _v[_v.len() - _some_percent_size as usize]);
+	//_some_percent_fps = libm::floor(1000.0 / _v[_some_percent_size as usize - 1]);
 	_some_percent_fps
 }
 
@@ -79,7 +64,10 @@ fn calculate_average_ranged_fps(_v: &[f64], _p: f64) -> f64 {
 }
 
 fn calculate_median_fps(_v: &[f64]) -> f64 {
-	if _v.len() % 2 == 0 { 1000.0 / _v[(_v.len() / 2) - 1] } else { libm::floor(1000.0 / _v[_v.len() / 2]) }
+	//yes, normally when taking the median of an even set we average the two values
+	//we want to use only real values that occured so will take the lower of the two values
+	//if _v.len() % 2 == 0 { 1000.0 / _v[(_v.len() / 2) - 1] } else { libm::floor(1000.0 / _v[_v.len() / 2]) }
+	if _v.len() % 2 == 0 { 1000.0 / _v[(_v.len() / 2) - 1] } else { 1000.0 / _v[_v.len() / 2] }
 }
 
 fn calculate_average_fps(_v: &[f64], _total_frame_time: f64) -> f64 {
@@ -108,11 +96,9 @@ fn calculate_jitter (_v: &[f64]) -> f64 {
 	//probably need to use the original unsorted vectors here
 	//for now just calling before sorting the vector
 	let mut _total_difference = 0.0;
-	//for time in _v.iter().peekable() {
 	for i in 1.._v.len() {
 		_total_difference += libm::fabs(_v[i] - _v[i-1]); 
 	}
-	//println!("TOTAL DIFFERENCE: {:?}", _total_difference);
 	_total_difference / (_v.len() as f64 - 1.0)
 }
 
@@ -121,11 +107,13 @@ fn process_csv(_path: String) -> Result<(), Box<Error>> {
 	//let mut rdr = csv::Reader::from_path("..\\data\\ThreeKingdoms_battle-0.csv")?;
 	
 	let mut _total_frame_time = 0.0;
+	let mut _dropped_frames = 0;
 	
 	let mut _frame_times_vec = vec![];
 	for result in rdr.deserialize() {        
 		let record: Present = result?;
 		_total_frame_time += record.ms_between_display_change;
+		_dropped_frames += record.dropped.unwrap();
 		_frame_times_vec.push(record.ms_between_display_change);
         //println!("{:?}", record.ms_between_display_change);
     }
@@ -137,7 +125,9 @@ fn process_csv(_path: String) -> Result<(), Box<Error>> {
 	_frame_times_vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
 		
 	println!("Total frame time in ms: {:?}", _total_frame_time.to_owned());
-    println!("Size of data set: {:?}", _frame_times_vec.len());
+	println!("Total frame time in s: {:?}", _total_frame_time.to_owned() / 1000.0);
+    println!("Total frames rendered: {:?}", _frame_times_vec.len());
+	println!("Total dropped frames: {:?}", _dropped_frames);
 		
 	println!("1% Low FPS: {:.2?}", calculate_ranged_fps(&_frame_times_vec, 0.01));
 	println!("0.1% Low FPS: {:.2?}", calculate_ranged_fps(&_frame_times_vec, 0.001));
@@ -150,10 +140,6 @@ fn process_csv(_path: String) -> Result<(), Box<Error>> {
 	println!("Below 144 FPS: {:.2?}%", percent_time_below_threshold(&_frame_times_vec, 6.944));
 	println!("Below 165 FPS: {:.2?}%", percent_time_below_threshold(&_frame_times_vec, 6.060));
 	println!("Below 240 FPS: {:.2?}%", percent_time_below_threshold(&_frame_times_vec, 4.166));
-	//println!("Jitter after sorting: {:.2?}ms", calculate_jitter(&_frame_times_vec));
-	
-	//let testV = vec![136.0,184.0,115.0,148.0,125.0];
-	//println!("Jitter TEST: {:.2?} ms", calculate_jitter(&testV));
 	
 	Ok(())
 }
@@ -175,4 +161,43 @@ fn main() {
 	}
 	
 	let _ = Command::new("cmd.exe").arg("/c").arg("pause").status();
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use rand::{thread_rng, Rng};
+	
+	#[test]
+	fn jitter_correct() {
+		let v = vec![136.0,184.0,115.0,148.0,125.0];
+		assert_eq!(43.25, calculate_jitter(&v));
+	}
+	
+	#[test]
+	fn below_threshold_count() {
+		let v = vec![23.3,12.2,45.6,16.6,16.5];
+		assert_eq!(40.0, percent_time_below_threshold(&v, 16.66));
+	}
+	
+	#[test]
+	fn median_odd_set() {
+		let mut v = vec![2.3,5.6,1.0,9.6,12.3];
+		v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+		assert_eq!(178.57142857142858,calculate_median_fps(&v));
+	}
+	
+	#[test]
+	#[ignore]
+	fn correct_ranged_fps_zero_point_one_percent_low() {
+		let mut rng = thread_rng();
+		let mut numbers: Vec<f64> = (0..1000).map(|_| {
+		// 1 (inclusive) to 101 (exclusive)
+		rng.gen_range(1.0, 101.0)
+		}).collect();
+		numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
+		numbers[0] = 16.66;
+		println!("Frametime to compare to: {:}", numbers[0]);
+		assert_eq!((libm::floor(1000.0/numbers[0])), calculate_ranged_fps(&numbers, 0.001));
+	}
 }
