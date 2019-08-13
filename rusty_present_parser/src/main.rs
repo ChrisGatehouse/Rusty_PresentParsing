@@ -160,6 +160,10 @@ fn process_csv(_path: String) -> Result<(), Box<Error>> {
 
 fn main() {
 	let args: Vec<String> = env::args().collect();
+	if args.len() < 2 {
+		println!("A file or directory argument is needed to run... ");
+		process::exit(1);
+	}
 	let _path = &args[1];
 	//https://doc.rust-lang.org/std/fs/struct.Metadata.html
 	//need to handle directories here also, check if arg is file or directory
