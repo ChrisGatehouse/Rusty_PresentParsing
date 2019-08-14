@@ -245,7 +245,37 @@ mod tests {
             .collect();
         numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
         numbers[999] = 16.66;
-        println!("Frametime to compare to: {:}", numbers[999]);
+        //println!("Frametime to compare to: {:}", numbers[999]);
         assert_eq!(1000.0 / numbers[999], calculate_ranged_fps(&numbers, 0.001));
+    }
+
+    #[test]
+    fn correct_average_ranged_fps_one_percent_low() {
+        let mut rng = thread_rng();
+        let mut numbers: Vec<f64> = (0..1000)
+            .map(|_| {
+                // 1 (inclusive) to 101 (exclusive)
+                rng.gen_range(1.0, 101.0)
+            })
+            .collect();
+        numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        //made a data set of 1000, sorted and then make sure that the last 10 are used for average 1% FPS calculation
+        numbers[990] = 16.66;
+        numbers[991] = 5.66;
+        numbers[992] = 3.45;
+        numbers[993] = 17.78;
+        numbers[994] = 14.56;
+        numbers[995] = 12.34;
+        numbers[996] = 16.54;
+        numbers[997] = 6.55;
+        numbers[998] = 8.67;
+        numbers[999] = 9.99;
+        //112.2 Average Frametime: 11.22 FPS: 89.126559714795008912655971479501‬
+
+        assert_eq!(
+            89.12655971479501,
+            calculate_average_ranged_fps(&numbers, 0.01)
+        );
     }
 }
