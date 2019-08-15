@@ -58,6 +58,14 @@ struct Present {
 
 //https://docs.rs/csv/1.1.1/csv/
 
+// Calculate the standard deviation of the frametimes
+fn standard_deviation(_v: &[f64], _total_frame_time: f64) -> f64 {
+    let mut variance = 0f64;
+    for i in 0.._v.len() {
+        variance += f64::powf(_v[i] - average_frametime(_v, _total_frame_time), 2.0);
+    }
+    f64::sqrt(variance / _v.len() as f64)
+}
 
 /// Calculates the FPS at a given percentile
 /// Expected to run on a sorted vector of frametimes
@@ -94,7 +102,7 @@ fn calculate_median_fps(_v: &[f64]) -> f64 {
 /// Finds and returns the median frametime in the dataset
 /// Expected to run on a sorted vector of frametimes
 fn median_frametime(_v: &[f64]) -> f64 {
-	if _v.len() % 2 == 0 {
+    if _v.len() % 2 == 0 {
         _v[(_v.len() / 2) - 1]
     } else {
         _v[_v.len() / 2]
@@ -104,18 +112,23 @@ fn median_frametime(_v: &[f64]) -> f64 {
 /// Calculates the maximum fps of the data set
 /// Expected to run on a sorted vector of frametimes
 fn calculate_max_fps(_v: &[f64]) -> f64 {
-	1000.0 / _v[0]
+    1000.0 / _v[0]
 }
 
 /// Calculates the minimum fps of the data set
 /// Expected to run on a sorted vector of frametimes
 fn calculate_min_fps(_v: &[f64]) -> f64 {
-	1000.0 / _v[_v.len() - 1]
+    1000.0 / _v[_v.len() - 1]
 }
 
 /// Calculates the average FPS of the dataset
 fn calculate_average_fps(_v: &[f64], _total_frame_time: f64) -> f64 {
     1000.0 / (_total_frame_time / _v.len() as f64)
+}
+
+/// Calculate the average frametime of the dataset
+fn average_frametime(_v: &[f64], _total_frame_time: f64) -> f64 {
+    _total_frame_time / _v.len() as f64
 }
 
 /// Calculates the percentage of time below a given FPS
@@ -148,7 +161,7 @@ fn calculate_jitter(_v: &[f64]) -> f64 {
 /// This function handles the processing of the csv files and displays the data that was processes
 /// The reader was adapted from examples found on burnsushi https://blog.burntsushi.net/csv/
 /// # Arguments
-/// 
+///
 /// * `_path` - A string that is the path to the csv file to be parsed
 ///
 fn process_csv(_path: String) -> Result<(), Box<dyn Error>> {
@@ -174,9 +187,10 @@ fn process_csv(_path: String) -> Result<(), Box<dyn Error>> {
     }
 
     //this is done before sorting the vector, need to fix this so it can be called anytime (sorted and unsorted copies?)
+    println!("Jitter: {:.2?}ms", calculate_jitter(&_frame_times_vec));
     println!(
-        "Jitter before sorting: {:.2?} ms",
-        calculate_jitter(&_frame_times_vec)
+        "Standard deviation: {:.2?}ms",
+        standard_deviation(&_frame_times_vec, _total_frame_time)
     );
 
     //need to sort frametimes
@@ -187,9 +201,9 @@ fn process_csv(_path: String) -> Result<(), Box<dyn Error>> {
         println!("An error was detected in the dataset, results may be invalid!");
     }
 
-    println!("Total frame time in ms: {:?}", _total_frame_time.to_owned());
+    println!("Total frame time: {:?}ms", _total_frame_time.to_owned());
     println!(
-        "Total frame time in s: {:?}",
+        "Total frame time: {:?}s",
         _total_frame_time.to_owned() / 1000.0
     );
     println!("Total frames rendered: {:?}", _frame_times_vec.len());
@@ -219,15 +233,16 @@ fn process_csv(_path: String) -> Result<(), Box<dyn Error>> {
         "Avg. 0.1% FPS: \t  {:.2?}",
         calculate_average_ranged_fps(&_frame_times_vec, 0.001)
     );
-	println!(
-		"Median Frametime: {:.2?}", median_frametime(&_frame_times_vec)
-	);
-	println!(
-		"Max FPS: \t  {:.2?}", calculate_max_fps(&_frame_times_vec)
-	);
-		println!(
-		"Min FPS: \t  {:.2?}", calculate_min_fps(&_frame_times_vec)
-	);
+    println!("Max FPS: \t  {:.2?}", calculate_max_fps(&_frame_times_vec));
+    println!("Min FPS: \t  {:.2?}", calculate_min_fps(&_frame_times_vec));
+    println!(
+        "Median Frametime: {:.2?}ms",
+        median_frametime(&_frame_times_vec)
+    );
+    println!(
+        "Avg. Frametime:\t  {:.2?}ms",
+        average_frametime(&_frame_times_vec, _total_frame_time)
+    );
     println!(
         "Below 60 FPS: \t  {:.2?}%",
         percent_time_below_threshold(&_frame_times_vec, 16.66) //ms equal to 60 FPS
@@ -326,6 +341,24 @@ mod tests {
         let mut v = vec![2.3, 5.6, 1.0, 9.6, 12.3, 4.8];
         v.sort_by(|a, b| a.partial_cmp(b).unwrap());
         assert_eq!(208.33333333333334, calculate_median_fps(&v));
+    }
+
+    #[test]
+    fn correct_avg_fps() {
+        let v = vec![2.3, 5.6, 1.0, 9.6, 12.3, 4.8];
+        assert_eq!(
+            168.53932584269663,
+            calculate_average_fps(&v, v.iter().sum::<f64>() as f64)
+        );
+    }
+
+    #[test]
+    fn correct_avg_frametime() {
+        let v = vec![2.3, 5.6, 1.0, 9.6, 12.3, 4.8];
+        assert_eq!(
+            5.933333333333334,
+            average_frametime(&v, v.iter().sum::<f64>() as f64)
+        );
     }
 
     #[test]
