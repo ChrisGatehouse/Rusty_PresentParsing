@@ -1,12 +1,18 @@
 use libm;
-use std::env;
-use std::error::Error;
-use std::path::Path;
-use std::process;
-use std::process::Command;
-use std::{ffi::OsStr, fs};
-
 use serde::Deserialize;
+use std::{env, error::Error, ffi::OsStr, fs, path::Path, process, process::Command};
+
+/*
+struct CsvStandardResult {
+    median_fps: f64,
+    average_fps: f64,
+    one_percent_low_fps: f64,
+    point_one_percent_low_fps: f64,
+    has_error: bool,
+    filename: String,
+    //has_frame_sync: bool,
+}
+*/
 
 #[derive(Debug, Deserialize)]
 struct Present {
@@ -23,7 +29,7 @@ struct Present {
     #[serde(rename = "PresentFlags")]
     present_flags: Option<u64>, //5
     #[serde(rename = "AllowsTearing")]
-    allows_tearing: String, //6 Can use this maybe to detect it some kind of frame sync is enabled which will cause odd results
+    allows_tearing: String, //6 Can use this maybe to detect if some kind of frame sync is enabled which will cause odd or invalid results i.e. max frametime locked to monitor refresh
     #[serde(rename = "PresentMode")]
     present_mode: String, //7
     #[serde(rename = "Dropped")]
@@ -48,24 +54,16 @@ struct Present {
 //https://docs.rs/csv/1.1.1/csv/
 
 fn calculate_ranged_fps(_v: &[f64], _p: f64) -> f64 {
-    let mut _some_percent_fps = 0.0;
-    let mut _some_percent_size = libm::ceil(_v.len() as f64 * _p) as u64;
-    //println!("LOCATION: {:}", _v.len() - _some_percent_size as usize + 1);
-    //_some_percent_fps = libm::floor(1000.0 / _v[_v.len() - _some_percent_size as usize]);
-    //_some_percent_fps = libm::floor(1000.0 / _v[_some_percent_size as usize + 1]);
-    //_some_percent_fps = 1000.0 / _v[_some_percent_size as usize + 1];\
-    _some_percent_fps = 1000.0 / _v[_v.len() - _some_percent_size as usize];
-    _some_percent_fps
+    let _some_percent_size = libm::ceil(_v.len() as f64 * _p) as u64;
+    1000.0 / _v[_v.len() - _some_percent_size as usize]
 }
 
 fn calculate_average_ranged_fps(_v: &[f64], _p: f64) -> f64 {
-    let mut _ranged_size = libm::floor(_v.len() as f64 * _p) as usize;
-    //println!("RANGED SIZE: {:?}", _ranged_size);
+    let _ranged_size = libm::floor(_v.len() as f64 * _p) as usize;
     let mut _total_frame_time = 0.0;
     for time in _v.iter().rev().take(_ranged_size) {
         _total_frame_time += *time;
     }
-    //libm::floor(1000.0 / (_total_frame_time / _ranged_size as f64))
     1000.0 / (_total_frame_time / _ranged_size as f64)
 }
 
@@ -81,9 +79,7 @@ fn calculate_median_fps(_v: &[f64]) -> f64 {
 }
 
 fn calculate_average_fps(_v: &[f64], _total_frame_time: f64) -> f64 {
-    let mut _average_fps = 0.0;
-    _average_fps = 1000.0 / (_total_frame_time / _v.len() as f64);
-    _average_fps
+    1000.0 / (_total_frame_time / _v.len() as f64)
 }
 
 fn percent_time_below_threshold(_v: &[f64], _threshold: f64) -> f64 {
@@ -104,7 +100,7 @@ fn percent_time_below_threshold(_v: &[f64], _threshold: f64) -> f64 {
 /// ```
 fn calculate_jitter(_v: &[f64]) -> f64 {
     //probably need to use the original unsorted vectors here
-    //for now just calling before sorting the vector
+    //for now just calling this before sorting the vector in fn process_csv
     let mut _total_difference = 0.0;
     for i in 1.._v.len() {
         _total_difference += libm::fabs(_v[i] - _v[i - 1]);
@@ -112,7 +108,7 @@ fn calculate_jitter(_v: &[f64]) -> f64 {
     _total_difference / (_v.len() as f64 - 1.0)
 }
 
-fn process_csv(_path: String) -> Result<(), Box<Error>> {
+fn process_csv(_path: String) -> Result<(), Box<dyn Error>> {
     let mut rdr = csv::Reader::from_path(_path)?;
     //let mut rdr = csv::Reader::from_path("..\\data\\ThreeKingdoms_battle-0.csv")?;
     let mut _dataset_has_error = false;
@@ -125,7 +121,7 @@ fn process_csv(_path: String) -> Result<(), Box<Error>> {
         let record: Present = result?;
         _total_frame_time += record.ms_between_display_change;
         if record.dropped != "Error" {
-            // Handle an error that may be present in the data set
+            // Handle an error that may be present in the data set and log that it happened
             _dropped_frames += record.dropped.parse::<u64>().unwrap();
         } else {
             _dataset_has_error = true;
@@ -158,48 +154,44 @@ fn process_csv(_path: String) -> Result<(), Box<Error>> {
     println!("Total dropped frames: {:?}", _dropped_frames);
 
     println!(
-        "1% Low FPS: {:.2?}",
+        "Median FPS: \t{:.2?}",
+        calculate_median_fps(&_frame_times_vec)
+    );
+    println!(
+        "1% Low FPS: \t{:.2?}",
         calculate_ranged_fps(&_frame_times_vec, 0.01)
     );
     println!(
-        "0.1% Low FPS: {:.2?}",
+        "0.1% Low FPS: \t{:.2?}",
         calculate_ranged_fps(&_frame_times_vec, 0.001)
     );
     println!(
-        "Average FPS: {:.2?}",
+        "Avg. FPS: \t{:.2?}",
         calculate_average_fps(&_frame_times_vec, _total_frame_time)
     );
     println!(
-        "Median FPS: {:.2?}",
-        calculate_median_fps(&_frame_times_vec)
-    );
-    println!(
-        "Average 1% FPS: {:.2?}",
+        "Avg. 1% FPS: \t{:.2?}",
         calculate_average_ranged_fps(&_frame_times_vec, 0.01)
     );
     println!(
-        "Average 0.1% FPS: {:.2?}",
+        "Avg. 0.1% FPS: \t{:.2?}",
         calculate_average_ranged_fps(&_frame_times_vec, 0.001)
     );
     println!(
-        "Median FPS: {:.2?}",
-        calculate_median_fps(&_frame_times_vec)
+        "Below 60 FPS: \t{:.2?}%",
+        percent_time_below_threshold(&_frame_times_vec, 16.66) //ms equal to 60 FPS
     );
     println!(
-        "Below 60 FPS: {:.2?}%",
-        percent_time_below_threshold(&_frame_times_vec, 16.66)
+        "Below 144 FPS: \t{:.2?}%",
+        percent_time_below_threshold(&_frame_times_vec, 6.944) //ms equal to 144 FPS
     );
     println!(
-        "Below 144 FPS: {:.2?}%",
-        percent_time_below_threshold(&_frame_times_vec, 6.944)
+        "Below 165 FPS: \t{:.2?}%",
+        percent_time_below_threshold(&_frame_times_vec, 6.060) //ms equal to 165 FPS
     );
     println!(
-        "Below 165 FPS: {:.2?}%",
-        percent_time_below_threshold(&_frame_times_vec, 6.060)
-    );
-    println!(
-        "Below 240 FPS: {:.2?}%",
-        percent_time_below_threshold(&_frame_times_vec, 4.166)
+        "Below 240 FPS: \t{:.2?}%",
+        percent_time_below_threshold(&_frame_times_vec, 4.166) //ms equal to 240 FPS
     );
     println!();
     println!();
@@ -255,54 +247,76 @@ mod tests {
 
     #[test]
     fn jitter_correct() {
+        //Test will check that given a defined set the result matches what is expected for that set
         let v = vec![136.0, 184.0, 115.0, 148.0, 125.0];
         assert_eq!(43.25, calculate_jitter(&v));
     }
 
     #[test]
     fn below_threshold_count() {
+        //Test will check that given a defined set and threshold what is returned is the correct
+        //percentage of values below the given threshold
         let v = vec![23.3, 12.2, 45.6, 16.6, 16.5];
         assert_eq!(40.0, percent_time_below_threshold(&v, 16.66));
     }
 
     #[test]
     fn median_odd_set() {
+        //Test will check that a correct median value (in FPS) for an odd set is returned
         let mut v = vec![2.3, 5.6, 1.0, 9.6, 12.3];
         v.sort_by(|a, b| a.partial_cmp(b).unwrap());
         assert_eq!(178.57142857142858, calculate_median_fps(&v));
     }
 
     #[test]
+    fn median_even_set() {
+        //Test will check that a correct median value (in FPS) for an even set is returned
+        //The correct value in our case is the bottom of the two middle values not the average
+        let mut v = vec![2.3, 5.6, 1.0, 9.6, 12.3, 4.8];
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        assert_eq!(208.33333333333334, calculate_median_fps(&v));
+    }
+
+    #[test]
     fn correct_ranged_fps_zero_point_one_percent_low() {
+        //Test will generate a dataset of 1000 and then fill the 1 percent position with a defined value
+        //The result that returns should exactly match the defined value in FPS
         let mut rng = thread_rng();
-        let mut numbers: Vec<f64> = (0..1000).map(|_| rng.gen_range(1.0, 101.0)).collect();
-        numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        numbers[999] = 16.66;
-        assert_eq!(1000.0 / numbers[999], calculate_ranged_fps(&numbers, 0.001));
+        let mut mock_frametimes_ms: Vec<f64> =
+            (0..1000).map(|_| rng.gen_range(1.0, 101.0)).collect();
+        mock_frametimes_ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        mock_frametimes_ms[999] = 16.66;
+        assert_eq!(
+            1000.0 / mock_frametimes_ms[999],
+            calculate_ranged_fps(&mock_frametimes_ms, 0.001)
+        );
     }
 
     #[test]
     fn correct_average_ranged_fps_one_percent_low() {
+        //Test will generate a dataset of 1000 and then fill the last 1 percent with defined values
+        //The result that returns should exactly match a value calculated by hand from the defined values
         let mut rng = thread_rng();
-        let mut numbers: Vec<f64> = (0..1000).map(|_| rng.gen_range(1.0, 101.0)).collect();
-        numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let mut mock_frametimes_ms: Vec<f64> =
+            (0..1000).map(|_| rng.gen_range(1.0, 101.0)).collect();
+        mock_frametimes_ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         //made a data set of 1000, sorted and then make sure that the last 10 are used for average 1% FPS calculation
-        numbers[990] = 16.66;
-        numbers[991] = 5.66;
-        numbers[992] = 3.45;
-        numbers[993] = 17.78;
-        numbers[994] = 14.56;
-        numbers[995] = 12.34;
-        numbers[996] = 16.54;
-        numbers[997] = 6.55;
-        numbers[998] = 8.67;
-        numbers[999] = 9.99;
+        mock_frametimes_ms[990] = 16.66;
+        mock_frametimes_ms[991] = 5.66;
+        mock_frametimes_ms[992] = 3.45;
+        mock_frametimes_ms[993] = 17.78;
+        mock_frametimes_ms[994] = 14.56;
+        mock_frametimes_ms[995] = 12.34;
+        mock_frametimes_ms[996] = 16.54;
+        mock_frametimes_ms[997] = 6.55;
+        mock_frametimes_ms[998] = 8.67;
+        mock_frametimes_ms[999] = 9.99;
         //112.2 Average Frametime: 11.22 FPS: 89.126559714795008912655971479501‬
 
         assert_eq!(
             89.12655971479501,
-            calculate_average_ranged_fps(&numbers, 0.01)
+            calculate_average_ranged_fps(&mock_frametimes_ms, 0.01)
         );
     }
 }
