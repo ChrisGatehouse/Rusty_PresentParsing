@@ -97,7 +97,12 @@ Below 60 FPS:   0.48%
 Below 144 FPS:  66.96%  
 Below 165 FPS:  81.54%  
 Below 240 FPS:  100.00%  
-  
+
+# Known Issues / Limitations  
+  - Errors in the PresentMon data set may cause a crash if I have not seen the specific condition yet, known errors that are not critical will be noted in the results.  
+  - If frame syncs of some type were enabled during the PresentMon run results may not be what you expected i.e. values seem to hit some framerate ceiling (this will be detected later)  
+  - The program will process all csv files in a directory, if csv files exist that are not in the correct format the program will not run correctly  
+
 # License
 
 This program is licenced under the "MIT License". Please see the file 'LICENSE' in this distribution for license terms.
