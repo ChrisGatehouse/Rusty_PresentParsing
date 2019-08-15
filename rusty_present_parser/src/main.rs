@@ -1,10 +1,10 @@
-use std::error::Error;
-//use std::io;
 use libm;
-use std::process;
-//use std::fs;
 use std::env;
+use std::error::Error;
+use std::path::Path;
+use std::process;
 use std::process::Command;
+use std::{ffi::OsStr, fs};
 
 use serde::Deserialize;
 
@@ -23,16 +23,17 @@ struct Present {
     #[serde(rename = "PresentFlags")]
     present_flags: Option<u64>, //5
     #[serde(rename = "AllowsTearing")]
-    allows_tearing: String, //6
+    allows_tearing: String, //6 Can use this maybe to detect it some kind of frame sync is enabled which will cause odd results
     #[serde(rename = "PresentMode")]
     present_mode: String, //7
     #[serde(rename = "Dropped")]
-    #[serde(deserialize_with = "csv::invalid_option")]
-    dropped: Option<u64>, //8
+    dropped: String, //8 This is a string so we can handle an "Error" in the column, parse the string later and turn it into an u64 as long as it is not "Error"
+    //#[serde(deserialize_with = "csv::invalid_option")] //Sometimes 'Error' is in this column, try to handle it
+    //dropped: Option<u64>, //8
     #[serde(rename = "TimeInSeconds")]
     time_in_seconds: f64, //9
     #[serde(rename = "MsBetweenPresents")]
-    ms_between_presents: Option<f64>, //10
+    ms_between_presents: Option<f64>, //10 May panic if this value is zero, should not be the case until the frame is dropped (need fix,skip, or fall back to MsBetweenPresents?)
     #[serde(rename = "MsBetweenDisplayChange")]
     ms_between_display_change: f64, //11
     #[serde(rename = "MsInPresentAPI")]
@@ -40,6 +41,7 @@ struct Present {
     #[serde(rename = "MsUntilRenderComplete")]
     ms_until_render_complete: Option<f64>, //13
     #[serde(rename = "MsUntilDisplayed")]
+    //May panic if this value is zero, though it is not used in calculations yet
     ms_until_displayed: Option<f64>, //14
 }
 
@@ -113,6 +115,7 @@ fn calculate_jitter(_v: &[f64]) -> f64 {
 fn process_csv(_path: String) -> Result<(), Box<Error>> {
     let mut rdr = csv::Reader::from_path(_path)?;
     //let mut rdr = csv::Reader::from_path("..\\data\\ThreeKingdoms_battle-0.csv")?;
+    let mut _dataset_has_error = false;
 
     let mut _total_frame_time = 0.0;
     let mut _dropped_frames = 0;
@@ -121,7 +124,13 @@ fn process_csv(_path: String) -> Result<(), Box<Error>> {
     for result in rdr.deserialize() {
         let record: Present = result?;
         _total_frame_time += record.ms_between_display_change;
-        _dropped_frames += record.dropped.unwrap();
+        if record.dropped != "Error" {
+            // Handle an error that may be present in the data set
+            _dropped_frames += record.dropped.parse::<u64>().unwrap();
+        } else {
+            _dataset_has_error = true;
+        }
+        //_dropped_frames += record.dropped.unwrap(); //This may crash when it gets to a column that has "Error" in it instead of a u64
         _frame_times_vec.push(record.ms_between_display_change);
         //println!("{:?}", record.ms_between_display_change);
     }
@@ -134,6 +143,11 @@ fn process_csv(_path: String) -> Result<(), Box<Error>> {
 
     //need to sort frametimes
     _frame_times_vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    if _dataset_has_error {
+        //Add color support here to highligh the error better? https://github.com/BurntSushi/termcolor
+        println!("An error was detected in the dataset, results may be invalid!");
+    }
 
     println!("Total frame time in ms: {:?}", _total_frame_time.to_owned());
     println!(
@@ -187,27 +201,51 @@ fn process_csv(_path: String) -> Result<(), Box<Error>> {
         "Below 240 FPS: {:.2?}%",
         percent_time_below_threshold(&_frame_times_vec, 4.166)
     );
+    println!();
+    println!();
 
     Ok(())
 }
 
-fn main() {
+fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         println!("A file or directory argument is needed to run... ");
         process::exit(1);
     }
-    let _path = &args[1];
-    //https://doc.rust-lang.org/std/fs/struct.Metadata.html
-    //need to handle directories here also, check if arg is file or directory
-    //if file continue and proceess, if directory look for csv files and proceess
-
-    if let Err(err) = process_csv(_path.to_string()) {
-        println!("error running process_csv: {}", err);
-        process::exit(1);
+    let _path = Path::new(&args[1]);
+    let _path_test = fs::metadata(_path)?;
+    if _path_test.is_file() {
+        println!("Single file {:?} is input", _path);
+        if let Err(err) = process_csv(_path.to_str().unwrap().to_string()) {
+            //this may be a little dangerous, an Option is returned
+            println!("error running process_csv: {}", err);
+            process::exit(1);
+        }
     }
-
+    if _path_test.is_dir() {
+        println!("Processing directory files in {:?}\n", _path);
+        //since we got a directory, we need to process for now, all the csv data files that exist
+        //walk the dir looking for csv data files process_csv for each file that exists
+        //modified this code to implement this section: https://stackoverflow.com/a/51419126
+        let mut result = vec![];
+        for _dir_path in fs::read_dir(_path)? {
+            let _dir_path = _dir_path?.path();
+            if let Some("csv") = _dir_path.extension().and_then(OsStr::to_str) {
+                result.push(_dir_path.to_owned());
+            }
+        }
+        println!("# CSV FILES FOUND: {:?}\n", result.len());
+        for csv in result {
+            println!("WORKING FILE: {:?}", csv);
+            if let Err(err) = process_csv(csv.to_str().unwrap().to_string()) {
+                println!("error running process_csv: {}", err);
+                process::exit(1);
+            }
+        }
+    }
     let _ = Command::new("cmd.exe").arg("/c").arg("pause").status();
+    Ok(())
 }
 
 #[cfg(test)]
@@ -237,27 +275,16 @@ mod tests {
     #[test]
     fn correct_ranged_fps_zero_point_one_percent_low() {
         let mut rng = thread_rng();
-        let mut numbers: Vec<f64> = (0..1000)
-            .map(|_| {
-                // 1 (inclusive) to 101 (exclusive)
-                rng.gen_range(1.0, 101.0)
-            })
-            .collect();
+        let mut numbers: Vec<f64> = (0..1000).map(|_| rng.gen_range(1.0, 101.0)).collect();
         numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
         numbers[999] = 16.66;
-        //println!("Frametime to compare to: {:}", numbers[999]);
         assert_eq!(1000.0 / numbers[999], calculate_ranged_fps(&numbers, 0.001));
     }
 
     #[test]
     fn correct_average_ranged_fps_one_percent_low() {
         let mut rng = thread_rng();
-        let mut numbers: Vec<f64> = (0..1000)
-            .map(|_| {
-                // 1 (inclusive) to 101 (exclusive)
-                rng.gen_range(1.0, 101.0)
-            })
-            .collect();
+        let mut numbers: Vec<f64> = (0..1000).map(|_| rng.gen_range(1.0, 101.0)).collect();
         numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         //made a data set of 1000, sorted and then make sure that the last 10 are used for average 1% FPS calculation
