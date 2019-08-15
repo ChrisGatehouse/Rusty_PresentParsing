@@ -103,6 +103,20 @@ Below 240 FPS:  100.00%
   - If frame syncs of some type were enabled during the PresentMon run results may not be what you expected i.e. values seem to hit some framerate ceiling (this will be detected later)  
   - The program will process all csv files in a directory, if csv files exist that are not in the correct format the program will not run correctly  
 
+# Tests
+As of right now the source contains 6 tests that will check for correct results from the methods used to calculate values. You can run the tests by using 'cargo test'. More tests will be added as needed.  
+Sample test run: cargo test  
+running 6 tests  
+test tests::below_threshold_count ... ok  
+test tests::jitter_correct ... ok  
+test tests::median_even_set ... ok  
+test tests::median_odd_set ... ok  
+test tests::correct_average_ranged_fps_one_percent_low ... ok  
+test tests::correct_ranged_fps_zero_point_one_percent_low ... ok  
+  
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out  
+  
+
 # License
 
 This program is licenced under the "MIT License". Please see the file 'LICENSE' in this distribution for license terms.
