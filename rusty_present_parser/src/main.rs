@@ -1,3 +1,8 @@
+// Copyright © 2019 Chris Gatehouse
+// This program is licensed under the "MIT License".
+// Please see the file LICENSE in this distribution
+// for license terms.
+
 use libm;
 use serde::Deserialize;
 use std::{env, error::Error, ffi::OsStr, fs, path::Path, process, process::Command};
@@ -108,6 +113,12 @@ fn calculate_jitter(_v: &[f64]) -> f64 {
     _total_difference / (_v.len() as f64 - 1.0)
 }
 
+/// This function handles the processing of the csv files and displays the data that was processes
+/// The reader was adapted from examples found on burnsushi https://blog.burntsushi.net/csv/
+/// # Arguments
+/// 
+/// * `_path` - A string that is the path to the csv file to be parsed
+///
 fn process_csv(_path: String) -> Result<(), Box<dyn Error>> {
     let mut rdr = csv::Reader::from_path(_path)?;
     //let mut rdr = csv::Reader::from_path("..\\data\\ThreeKingdoms_battle-0.csv")?;
@@ -227,9 +238,9 @@ fn main() -> std::io::Result<()> {
                 result.push(_dir_path.to_owned());
             }
         }
-        println!("# CSV FILES FOUND: {:?}\n", result.len());
+        println!("CSV FILES FOUND: {:?}\n", result.len());
         for csv in result {
-            println!("WORKING FILE: {:?}", csv);
+            println!("WORKING ON FILE: {:?}", csv);
             if let Err(err) = process_csv(csv.to_str().unwrap().to_string()) {
                 println!("error running process_csv: {}", err);
                 process::exit(1);
