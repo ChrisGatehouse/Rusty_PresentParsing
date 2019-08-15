@@ -58,11 +58,17 @@ struct Present {
 
 //https://docs.rs/csv/1.1.1/csv/
 
+
+/// Calculates the FPS at a given percentile
+/// Expected to run on a sorted vector of frametimes
 fn calculate_ranged_fps(_v: &[f64], _p: f64) -> f64 {
     let _some_percent_size = libm::ceil(_v.len() as f64 * _p) as u64;
     1000.0 / _v[_v.len() - _some_percent_size as usize]
 }
 
+/// Calculates the average ranged FPS in the dataset
+/// i.e. a range being a percentile
+/// Expected to run on a sorted vector of frametimes
 fn calculate_average_ranged_fps(_v: &[f64], _p: f64) -> f64 {
     let _ranged_size = libm::floor(_v.len() as f64 * _p) as usize;
     let mut _total_frame_time = 0.0;
@@ -72,6 +78,8 @@ fn calculate_average_ranged_fps(_v: &[f64], _p: f64) -> f64 {
     1000.0 / (_total_frame_time / _ranged_size as f64)
 }
 
+/// Finds and returns the median FPS in the dataset
+/// Expected to run on a sorted vector of frametimes
 fn calculate_median_fps(_v: &[f64]) -> f64 {
     //yes, normally when taking the median of an even set we average the two values
     //we want to use only real values that occured so will take the lower of the two values
@@ -83,10 +91,34 @@ fn calculate_median_fps(_v: &[f64]) -> f64 {
     }
 }
 
+/// Finds and returns the median frametime in the dataset
+/// Expected to run on a sorted vector of frametimes
+fn median_frametime(_v: &[f64]) -> f64 {
+	if _v.len() % 2 == 0 {
+        _v[(_v.len() / 2) - 1]
+    } else {
+        _v[_v.len() / 2]
+    }
+}
+
+/// Calculates the maximum fps of the data set
+/// Expected to run on a sorted vector of frametimes
+fn calculate_max_fps(_v: &[f64]) -> f64 {
+	1000.0 / _v[0]
+}
+
+/// Calculates the minimum fps of the data set
+/// Expected to run on a sorted vector of frametimes
+fn calculate_min_fps(_v: &[f64]) -> f64 {
+	1000.0 / _v[_v.len() - 1]
+}
+
+/// Calculates the average FPS of the dataset
 fn calculate_average_fps(_v: &[f64], _total_frame_time: f64) -> f64 {
     1000.0 / (_total_frame_time / _v.len() as f64)
 }
 
+/// Calculates the percentage of time below a given FPS
 fn percent_time_below_threshold(_v: &[f64], _threshold: f64) -> f64 {
     let count = _v.iter().filter(|&n| *n > _threshold).count();
     100.0 * (count as f64 / _v.len() as f64)
@@ -139,7 +171,6 @@ fn process_csv(_path: String) -> Result<(), Box<dyn Error>> {
         }
         //_dropped_frames += record.dropped.unwrap(); //This may crash when it gets to a column that has "Error" in it instead of a u64
         _frame_times_vec.push(record.ms_between_display_change);
-        //println!("{:?}", record.ms_between_display_change);
     }
 
     //this is done before sorting the vector, need to fix this so it can be called anytime (sorted and unsorted copies?)
@@ -165,43 +196,52 @@ fn process_csv(_path: String) -> Result<(), Box<dyn Error>> {
     println!("Total dropped frames: {:?}", _dropped_frames);
 
     println!(
-        "Median FPS: \t{:.2?}",
+        "Median FPS: \t  {:.2?}",
         calculate_median_fps(&_frame_times_vec)
     );
     println!(
-        "1% Low FPS: \t{:.2?}",
+        "1% Low FPS: \t  {:.2?}",
         calculate_ranged_fps(&_frame_times_vec, 0.01)
     );
     println!(
-        "0.1% Low FPS: \t{:.2?}",
+        "0.1% Low FPS: \t  {:.2?}",
         calculate_ranged_fps(&_frame_times_vec, 0.001)
     );
     println!(
-        "Avg. FPS: \t{:.2?}",
+        "Avg. FPS: \t  {:.2?}",
         calculate_average_fps(&_frame_times_vec, _total_frame_time)
     );
     println!(
-        "Avg. 1% FPS: \t{:.2?}",
+        "Avg. 1% FPS: \t  {:.2?}",
         calculate_average_ranged_fps(&_frame_times_vec, 0.01)
     );
     println!(
-        "Avg. 0.1% FPS: \t{:.2?}",
+        "Avg. 0.1% FPS: \t  {:.2?}",
         calculate_average_ranged_fps(&_frame_times_vec, 0.001)
     );
+	println!(
+		"Median Frametime: {:.2?}", median_frametime(&_frame_times_vec)
+	);
+	println!(
+		"Max FPS: \t  {:.2?}", calculate_max_fps(&_frame_times_vec)
+	);
+		println!(
+		"Min FPS: \t  {:.2?}", calculate_min_fps(&_frame_times_vec)
+	);
     println!(
-        "Below 60 FPS: \t{:.2?}%",
+        "Below 60 FPS: \t  {:.2?}%",
         percent_time_below_threshold(&_frame_times_vec, 16.66) //ms equal to 60 FPS
     );
     println!(
-        "Below 144 FPS: \t{:.2?}%",
+        "Below 144 FPS: \t  {:.2?}%",
         percent_time_below_threshold(&_frame_times_vec, 6.944) //ms equal to 144 FPS
     );
     println!(
-        "Below 165 FPS: \t{:.2?}%",
+        "Below 165 FPS: \t  {:.2?}%",
         percent_time_below_threshold(&_frame_times_vec, 6.060) //ms equal to 165 FPS
     );
     println!(
-        "Below 240 FPS: \t{:.2?}%",
+        "Below 240 FPS: \t  {:.2?}%",
         percent_time_below_threshold(&_frame_times_vec, 4.166) //ms equal to 240 FPS
     );
     println!();
