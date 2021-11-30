@@ -1,5 +1,5 @@
 # Rusty_PresentParsing
-Copyright © 2019 Chris Gatehouse
+Copyright © 2021 Chris Gatehouse
 
 Project: Rusty_PresentParsing and Data Analysis
 
@@ -56,7 +56,7 @@ Below 144 FPS:  5.60%
 Below 165 FPS:  10.20%  
 Below 240 FPS:  100.00%  
 
-If you want to process a directoy then the following command is for you.  
+If you want to process a directory then the following command is for you.  
 Directory run with cargo: cargo run ..\data\  
 Directory run with binary:  rusty_present_parser.exe ..\..\..\data\  
 Processing directory files in "..\\data\\"  
