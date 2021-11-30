@@ -397,7 +397,6 @@ mod tests {
         mock_frametimes_ms[998] = 8.67;
         mock_frametimes_ms[999] = 9.99;
         //112.2 Average Frametime: 11.22 FPS: 89.126559714795008912655971479501‬
-
         assert_eq!(
             89.12655971479501,
             calculate_average_ranged_fps(&mock_frametimes_ms, 0.01)
